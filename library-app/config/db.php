@@ -2,10 +2,14 @@
 declare(strict_types=1);
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.use_strict_mode', '1');
     session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
         'httponly' => true,
         'samesite' => 'Lax',
-        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
     ]);
     session_start();
 }
@@ -13,10 +17,36 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 const APP_NAME = 'Maktab Kutubxonasi';
 
 /*
- * Loyiha manzili:
- * C:\xampp\htdocs\library-app\library-app
+ * APP_URL joriy skriptning server yo‘li va ochiq URL yo‘lidan avtomatik
+ * aniqlanadi. Zarur bo‘lsa muhitdagi APP_URL (masalan, /library-app)
+ * bilan aniq qiymat berish mumkin.
  */
-const APP_URL = '/library-app/library-app';
+$appUrl = getenv('APP_URL');
+if (!is_string($appUrl) || trim($appUrl) === '') {
+    $applicationRoot = realpath(dirname(__DIR__));
+    $scriptFilename = realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? ''));
+    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    $appUrl = '';
+
+    if ($applicationRoot !== false && $scriptFilename !== false && str_starts_with($scriptFilename, $applicationRoot)) {
+        $relativeScript = str_replace(DIRECTORY_SEPARATOR, '/', substr($scriptFilename, strlen($applicationRoot)));
+        if ($relativeScript !== '' && str_ends_with($scriptName, $relativeScript)) {
+            $appUrl = substr($scriptName, 0, -strlen($relativeScript));
+        }
+    }
+
+    if ($appUrl === '') {
+        $documentRootValue = trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+        $documentRoot = $documentRootValue !== '' ? realpath($documentRootValue) : false;
+        if ($documentRoot !== false && $documentRoot !== DIRECTORY_SEPARATOR && $applicationRoot !== false && str_starts_with($applicationRoot, $documentRoot)) {
+            $relativeRoot = str_replace(DIRECTORY_SEPARATOR, '/', substr($applicationRoot, strlen($documentRoot)));
+            $appUrl = '/' . trim($relativeRoot, '/');
+        } else {
+            $appUrl = '/library-app/library-app';
+        }
+    }
+}
+define('APP_URL', rtrim('/' . ltrim(trim($appUrl), '/'), '/'));
 
 const DB_HOST = '127.0.0.1';
 const DB_PORT = '3306';

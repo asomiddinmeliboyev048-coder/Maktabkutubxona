@@ -2,10 +2,8 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/db.php';
-$user = require_any_role($pdo, ['librarian', 'admin']);
-$isAdmin = $user['role'] === 'admin';
-$ownerClause = $isAdmin ? '' : ' AND b.user_id = :owner_id';
-$ownerParams = $isAdmin ? [] : ['owner_id' => $user['id']];
+$user = require_role($pdo, 'admin');
+$isAdmin = true;
 
 sync_overdue_transactions($pdo, $isAdmin ? null : (int) $user['id']);
 library_feature_expire_reservations($pdo, $isAdmin ? null : (int) $user['id']);
