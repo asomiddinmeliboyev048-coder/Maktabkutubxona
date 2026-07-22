@@ -34,8 +34,13 @@ function current_user(PDO $pdo): ?array
 
 function login_user(array $user): void
 {
+    $userId = filter_var($user['id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$userId || $userId < 1) {
+        throw new InvalidArgumentException('Tizimga kirish uchun foydalanuvchi identifikatori kerak.');
+    }
+
     session_regenerate_id(true);
-    $_SESSION['user_id'] = (int) $user['id'];
+    $_SESSION['user_id'] = (int) $userId;
     unset($_SESSION['csrf_token']);
 }
 
@@ -83,6 +88,11 @@ function role_dashboard_path(string $role): string
         'librarian' => 'vendor/index.php',
         default => 'index.php',
     };
+}
+
+function is_public_registration_role(string $role): bool
+{
+    return in_array($role, ['student', 'librarian'], true);
 }
 
 function user_is_owner(array $book, array $user): bool

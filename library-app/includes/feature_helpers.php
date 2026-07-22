@@ -197,26 +197,31 @@ function whatsapp_phone(string $phone): string
 
 function library_feature_admin_nav(string $active): string
 {
-    global $pdo;
-    $role = isset($pdo) ? (string) ((current_user($pdo)['role'] ?? '')) : '';
-    if ($role === 'admin') {
-        $items = [
-            'students' => ['admin/students.php', 'fa-users', 'O‘quvchilar'],
-            'reservations' => ['admin/reservations.php', 'fa-calendar-check', 'Band qilishlar'],
-            'issue' => ['admin/issue-book.php', 'fa-arrow-up-right-from-square', 'Kitob berish'],
-            'return' => ['admin/return-book.php', 'fa-rotate-left', 'Kitobni qaytarish'],
-        ];
-    } else {
-        $items = [
-            'dashboard' => ['vendor/index.php', 'fa-chart-pie', 'Sotuvchi paneli'],
-            'books' => ['vendor/index.php', 'fa-book', 'Mening kitoblarim'],
-            'add-book' => ['vendor/book-form.php', 'fa-square-plus', 'E’lon qo‘shish'],
-            'reservations' => ['admin/reservations.php', 'fa-calendar-check', 'Band qilishlar'],
-            'issue' => ['admin/issue-book.php', 'fa-arrow-up-right-from-square', 'Kitob berish'],
-            'return' => ['admin/return-book.php', 'fa-rotate-left', 'Kitobni qaytarish'],
-        ];
+    $items = [
+        'dashboard' => ['admin/index.php', 'fa-chart-pie', 'Dashboard'],
+        'books' => ['admin/books.php', 'fa-book', 'Kitoblar'],
+        'add-book' => ['admin/add-book.php', 'fa-square-plus', 'Kitob qo‘shish'],
+        'students' => ['admin/students.php', 'fa-users', 'O‘quvchilar'],
+        'reservations' => ['admin/reservations.php', 'fa-calendar-check', 'Band qilishlar'],
+        'issue' => ['admin/issue-book.php', 'fa-arrow-up-right-from-square', 'Kitob berish'],
+        'return' => ['admin/return-book.php', 'fa-rotate-left', 'Kitobni qaytarish'],
+    ];
+
+    $html = '<nav class="admin-nav" aria-label="Super Admin navigatsiyasi">';
+    foreach ($items as $key => $item) {
+        $html .= '<a' . ($active === $key ? ' class="active"' : '') . ' href="' . e(APP_URL . '/' . $item[0]) . '"><i class="fa-solid ' . e($item[1]) . '"></i>' . e($item[2]) . '</a>';
     }
-    $html = '<nav class="admin-nav" aria-label="Admin navigatsiyasi">';
+    return $html . '<div class="nav-divider"></div><a href="' . e(APP_URL . '/index.php') . '"><i class="fa-solid fa-globe"></i>Ochiq katalog</a></nav>';
+}
+
+function library_feature_vendor_nav(string $active): string
+{
+    $items = [
+        'dashboard' => ['vendor/index.php', 'fa-chart-pie', 'Sotuvchi paneli'],
+        'add-book' => ['vendor/book-form.php', 'fa-square-plus', 'E’lon qo‘shish'],
+    ];
+
+    $html = '<nav class="admin-nav" aria-label="Kutubxonachi navigatsiyasi">';
     foreach ($items as $key => $item) {
         $html .= '<a' . ($active === $key ? ' class="active"' : '') . ' href="' . e(APP_URL . '/' . $item[0]) . '"><i class="fa-solid ' . e($item[1]) . '"></i>' . e($item[2]) . '</a>';
     }

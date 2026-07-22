@@ -2,10 +2,8 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/db.php';
-$user = require_any_role($pdo, ['librarian', 'admin']);
-$isAdmin = $user['role'] === 'admin';
-$ownerClause = $isAdmin ? '' : ' AND b.user_id = :user_id';
-$ownerParams = $isAdmin ? [] : ['user_id' => $user['id']];
+$user = require_role($pdo, 'admin');
+$isAdmin = true;
 
 sync_overdue_transactions($pdo, $isAdmin ? null : (int) $user['id']);
 $errors = [];

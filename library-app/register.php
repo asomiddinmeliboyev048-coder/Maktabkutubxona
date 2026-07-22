@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (mb_strlen($form['last_name']) < 2 || mb_strlen($form['last_name']) > 80) $errors[] = 'Familiya 2–80 belgidan iborat bo‘lsin.';
     if (!filter_var($form['email'], FILTER_VALIDATE_EMAIL) || mb_strlen($form['email']) > 190) $errors[] = 'E-mail manzilini to‘g‘ri kiriting.';
     if (mb_strlen($form['phone']) < 7 || mb_strlen($form['phone']) > 30) $errors[] = 'Telefon 7–30 belgidan iborat bo‘lsin.';
-    if (!in_array($form['role'], ['student', 'librarian'], true)) $errors[] = 'Rol noto‘g‘ri tanlangan.';
+    if (!is_public_registration_role($form['role'])) $errors[] = 'Faqat o‘quvchi yoki kutubxonachi rolini tanlash mumkin.';
     if ($form['role'] === 'student' && ($form['class_name'] === '' || mb_strlen($form['class_name']) > 50)) $errors[] = 'O‘quvchi uchun sinf majburiy.';
     if (strlen($password) < 8 || strlen($password) > 72) $errors[] = 'Parol 8–72 belgidan iborat bo‘lsin.';
     if (!preg_match('/[A-Za-z]/', $password) || !preg_match('/\d/', $password)) $errors[] = 'Parolda kamida bitta harf va bitta raqam bo‘lsin.';
