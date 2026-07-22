@@ -7,7 +7,7 @@ library_feature_expire_reservations($pdo);
 
 $searchInput = $_GET['q'] ?? '';
 $search = is_string($searchInput)
-    ? sanitize_input($searchInput)
+    ? mb_substr(trim($searchInput), 0, 120, 'UTF-8')
     : '';
 
 $categoryId = filter_input(INPUT_GET, 'category', FILTER_VALIDATE_INT);
@@ -61,6 +61,7 @@ $sql .= ' GROUP BY b.id, b.title, b.author, b.description, b.cover_image, b.tota
 $bookStatement = $pdo->prepare($sql);
 $bookStatement->execute($params);
 $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
+$flash = get_flash();
 ?>
 <!doctype html>
 <html lang="uz">
@@ -77,7 +78,7 @@ $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
     <link rel="stylesheet" href="<?= e(APP_URL) ?>/assets/css/features.css">
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top border-bottom">
+<nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top border-bottom catalog-navbar">
     <div class="container py-2">
         <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="<?= e(APP_URL) ?>/index.php">
             <span class="brand-icon"><i class="fa-solid fa-book-open"></i></span>
@@ -91,6 +92,15 @@ $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
         </div>
     </div>
 </nav>
+
+<?php if ($flash): ?>
+    <div class="container position-relative flash-stack" aria-live="polite">
+        <div class="alert alert-<?= e($flash['type']) ?> alert-dismissible fade show" role="alert">
+            <?= e($flash['message']) ?>
+            <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Yopish"></button>
+        </div>
+    </div>
+<?php endif; ?>
 
 <header class="catalog-hero">
     <div class="container position-relative">
@@ -108,13 +118,13 @@ $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
 </header>
 
 <main class="container py-5">
-    <section class="search-panel mb-5" aria-label="Kitoblarni qidirish">
+    <section class="search-panel header-search-glass mb-5" aria-label="Kitoblarni qidirish">
         <form method="get" action="<?= e(APP_URL) ?>/index.php" class="row g-3 align-items-end">
             <div class="col-lg-7">
                 <label for="q" class="form-label fw-semibold">Kitob, muallif yoki kategoriya</label>
                 <div class="input-group input-group-lg">
                     <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-magnifying-glass text-secondary"></i></span>
-                    <input type="search" class="form-control border-start-0" id="q" name="q" value="<?= e($search) ?>" placeholder="Masalan: O‘tkan kunlar">
+                    <input type="search" class="form-control border-start-0" id="q" name="q" value="<?= e($search) ?>" placeholder="Masalan: O‘tkan kunlar" maxlength="120" autocomplete="off">
                 </div>
             </div>
             <div class="col-md-7 col-lg-3">
@@ -185,7 +195,7 @@ $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
                             </div>
                             <div class="catalog-stock mb-3"><span><strong><?= (int) $book['total_copies'] ?></strong> jami</span><span><strong><?= (int) $book['free_copies'] ?></strong> erkin</span><span><strong><?= (int) $book['active_loan_count'] ?></strong> o‘quvchida</span><span><i class="fa-regular fa-calendar me-1"></i><?= e(library_feature_date($book['earliest_pickup_date'], 'aniq emas')) ?></span></div>
                             <?php if ($book['phone']): ?>
-                                <div class="d-flex gap-2 mb-2 position-relative" style="z-index:2">
+                                <div class="book-contact-actions d-flex gap-2 mb-2">
                                     <a class="btn btn-sm btn-outline-primary flex-fill" href="tel:<?= e($book['phone']) ?>" aria-label="<?= e($book['seller_name'] ?: 'Sotuvchi') ?>ga qo‘ng‘iroq"><i class="fa-solid fa-phone"></i></a>
                                     <a class="btn btn-sm btn-success flex-fill" href="https://wa.me/<?= e(whatsapp_phone((string) $book['phone'])) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp orqali bog‘lanish"><i class="fa-brands fa-whatsapp"></i></a>
                                 </div>
