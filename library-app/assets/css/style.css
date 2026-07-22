@@ -1,0 +1,251 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --surface: #ffffff;
+    --soft: #f8fafc;
+    --line: #e2e8f0;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warning: #f59e0b;
+    --radius: 20px;
+    --shadow: 0 16px 45px rgba(15, 23, 42, 0.09);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    min-height: 100vh;
+    margin: 0;
+    background: var(--soft);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--primary); }
+.navbar { box-shadow: 0 4px 25px rgba(15, 23, 42, 0.04); }
+.navbar-brand { color: var(--ink); }
+.brand-icon {
+    display: inline-grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    border-radius: 13px;
+    color: #fff;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+}
+
+.btn {
+    border-radius: 12px;
+    font-weight: 600;
+    transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary {
+    border-color: var(--primary);
+    background: var(--primary);
+    box-shadow: 0 8px 22px rgba(37, 99, 235, 0.18);
+}
+.btn-primary:hover { border-color: var(--primary-dark); background: var(--primary-dark); }
+.form-control, .form-select, .input-group-text {
+    min-height: 48px;
+    border-color: var(--line);
+    border-radius: 12px;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 .25rem rgba(37, 99, 235, .12);
+}
+
+.catalog-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 78px 0;
+    background:
+        radial-gradient(circle at 86% 20%, rgba(124, 58, 237, .14), transparent 25%),
+        radial-gradient(circle at 8% 80%, rgba(37, 99, 235, .14), transparent 27%),
+        linear-gradient(135deg, #eff6ff, #fff 58%, #f5f3ff);
+    border-bottom: 1px solid var(--line);
+}
+.catalog-hero::before, .catalog-hero::after {
+    position: absolute;
+    content: '';
+    border: 1px solid rgba(37, 99, 235, .1);
+    border-radius: 50%;
+}
+.catalog-hero::before { width: 280px; height: 280px; top: -170px; left: 12%; }
+.catalog-hero::after { width: 420px; height: 420px; right: -260px; bottom: -270px; }
+.hero-eyebrow, .section-kicker {
+    color: var(--primary);
+    font-size: .77rem;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+.hero-illustration {
+    display: inline-grid;
+    width: 210px;
+    height: 210px;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.9);
+    border-radius: 58px;
+    color: #fff;
+    background: linear-gradient(145deg, #2563eb, #7c3aed);
+    box-shadow: 0 25px 70px rgba(37, 99, 235, .28);
+    font-size: 5rem;
+    transform: rotate(4deg);
+}
+
+.search-panel, .content-card {
+    padding: 28px;
+    border: 1px solid rgba(226, 232, 240, .9);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+}
+.search-panel { margin-top: -75px; position: relative; z-index: 5; }
+.result-count, .review-count-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 9px 14px;
+    border-radius: 999px;
+    color: #475569;
+    background: #e2e8f0;
+    font-size: .88rem;
+    font-weight: 700;
+}
+
+.book-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 8px 30px rgba(15, 23, 42, .06);
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+.book-card:hover { transform: translateY(-7px); box-shadow: 0 20px 50px rgba(15, 23, 42, .13); }
+.book-cover-wrap { position: relative; overflow: hidden; height: 310px; background: #e2e8f0; }
+.book-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .4s ease;
+}
+.book-card:hover .book-cover { transform: scale(1.035); }
+.category-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    max-width: calc(100% - 28px);
+    padding: 7px 11px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.7);
+    border-radius: 999px;
+    color: #fff;
+    background: rgba(15, 23, 42, .72);
+    backdrop-filter: blur(8px);
+    font-size: .75rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.availability-ribbon {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    padding: 8px 13px;
+    border-radius: 12px 0 0 0;
+    color: #fff;
+    font-size: .75rem;
+    font-weight: 800;
+}
+.availability-ribbon.available { background: rgba(22, 163, 74, .94); }
+.availability-ribbon.unavailable { background: rgba(220, 38, 38, .94); }
+.book-card-body { padding: 21px; }
+.book-author { color: var(--muted); font-size: .84rem; font-weight: 600; }
+.book-title { min-height: 48px; font-weight: 800; line-height: 1.35; }
+.rating-stars { display: inline-flex; gap: 2px; color: var(--warning); font-size: .83rem; }
+.rating-number { color: var(--muted); font-size: .75rem; }
+.book-description { min-height: 63px; color: var(--muted); font-size: .88rem; line-height: 1.6; }
+.empty-state {
+    padding: 65px 24px;
+    border: 1px dashed #cbd5e1;
+    border-radius: var(--radius);
+    background: #fff;
+}
+.empty-state > i { color: #94a3b8; font-size: 3.2rem; }
+
+.details-hero {
+    background:
+        radial-gradient(circle at 80% 10%, rgba(124, 58, 237, .1), transparent 30%),
+        linear-gradient(135deg, #eff6ff, #fff 60%, #f5f3ff);
+    border-bottom: 1px solid var(--line);
+}
+.details-cover-frame {
+    overflow: hidden;
+    aspect-ratio: 3 / 4;
+    border: 8px solid #fff;
+    border-radius: 22px;
+    background: #e2e8f0;
+    box-shadow: 0 22px 60px rgba(15, 23, 42, .2);
+    transform: rotate(-1.5deg);
+}
+.details-cover { width: 100%; height: 100%; object-fit: cover; }
+.rating-large .rating-stars { gap: 4px; font-size: 1.25rem; }
+.availability-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 13px;
+    min-width: 250px;
+    padding: 13px 16px;
+    border-radius: 14px;
+}
+.availability-box > i { font-size: 1.65rem; }
+.availability-box strong, .availability-box span { display: block; }
+.availability-box span { opacity: .78; font-size: .82rem; }
+.availability-box.is-available { color: #166534; background: #dcfce7; }
+.availability-box.is-unavailable { color: #991b1b; background: #fee2e2; }
+.description-text { color: #475569; font-size: 1rem; line-height: 1.9; }
+.review-form-card { top: 105px; }
+.review-list { display: grid; gap: 0; }
+.review-item { display: flex; gap: 15px; padding: 22px 0; border-top: 1px solid var(--line); }
+.review-item:first-child { border-top: 0; padding-top: 0; }
+.review-avatar {
+    display: grid;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    font-weight: 800;
+}
+.star-rating-input { display: inline-flex; flex-direction: row-reverse; justify-content: flex-end; gap: 5px; }
+.star-rating-input input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.star-rating-input label { color: #cbd5e1; cursor: pointer; font-size: 1.8rem; transition: color .15s ease, transform .15s ease; }
+.star-rating-input label:hover, .star-rating-input label:hover ~ label,
+.star-rating-input input:checked ~ label { color: var(--warning); }
+.star-rating-input label:hover { transform: scale(1.12); }
+.star-rating-input input:focus-visible + label { outline: 3px solid rgba(37,99,235,.3); outline-offset: 3px; border-radius: 4px; }
+.public-footer { color: #cbd5e1; background: var(--ink); font-size: .88rem; }
+
+@media (max-width: 991.98px) {
+    .catalog-hero { padding: 60px 0 95px; }
+    .search-panel { margin-top: -60px; }
+    .review-form-card { top: 0; }
+}
+@media (max-width: 575.98px) {
+    .navbar-brand span:last-child { font-size: .9rem; }
+    .catalog-hero { padding: 45px 0 85px; }
+    .catalog-hero h1 { font-size: 2.25rem; }
+    .search-panel, .content-card { padding: 20px; border-radius: 16px; }
+    .book-cover-wrap { height: 370px; }
+    .details-cover-frame { max-width: 270px; margin: 0 auto; }
+}
