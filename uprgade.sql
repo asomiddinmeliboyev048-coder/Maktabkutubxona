@@ -2,6 +2,31 @@
 -- Designed to be repeatable on the original project schema and on partially upgraded installs.
 USE school_library;
 SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- Preserve exactly one pre-migration books snapshot. The guarded copy keeps
+-- the migration repeatable after books receives additional media columns.
+SET @books_backup_exists = (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'books_backup_marketplace_20260722'
+);
+SET @create_books_backup = IF(
+    @books_backup_exists = 0,
+    'CREATE TABLE `books_backup_marketplace_20260722` LIKE `books`',
+    'SELECT 1'
+);
+PREPARE statement_to_run FROM @create_books_backup;
+EXECUTE statement_to_run;
+DEALLOCATE PREPARE statement_to_run;
+SET @copy_books_backup = IF(
+    @books_backup_exists = 0,
+    'INSERT INTO `books_backup_marketplace_20260722` SELECT * FROM `books`',
+    'SELECT 1'
+);
+PREPARE statement_to_run FROM @copy_books_backup;
+EXECUTE statement_to_run;
+DEALLOCATE PREPARE statement_to_run;
 
 DELIMITER $$
 DROP PROCEDURE IF EXISTS library_add_column_if_missing$$
@@ -123,6 +148,33 @@ BEGIN
         PREPARE statement_to_run FROM @ddl;
         EXECUTE statement_to_run;
         DEALLOCATE PREPARE statement_to_run;
+    END IF;
+END$$
+
+DROP PROCEDURE IF EXISTS library_assert_no_orphans$$
+CREATE PROCEDURE library_assert_no_orphans(
+    IN child_table_value VARCHAR(64),
+    IN child_column_value VARCHAR(64),
+    IN parent_table_value VARCHAR(64),
+    IN parent_column_value VARCHAR(64)
+)
+BEGIN
+    SET @orphan_count = 0;
+    SET @ddl = CONCAT(
+        'SELECT COUNT(*) INTO @orphan_count FROM `', child_table_value,
+        '` AS child_row LEFT JOIN `', parent_table_value,
+        '` AS parent_row ON parent_row.`', parent_column_value,
+        '` = child_row.`', child_column_value,
+        '` WHERE child_row.`', child_column_value,
+        '` IS NOT NULL AND parent_row.`', parent_column_value, '` IS NULL'
+    );
+    PREPARE statement_to_run FROM @ddl;
+    EXECUTE statement_to_run;
+    DEALLOCATE PREPARE statement_to_run;
+
+    IF @orphan_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Migration stopped: orphan rows must be repaired before adding foreign keys';
     END IF;
 END$$
 DELIMITER ;
@@ -288,14 +340,17 @@ CALL library_add_unique_index_if_missing(
     '(`book_id`, `student_id`, `active_request`)'
 );
 
+CALL library_assert_no_orphans('reservations', 'book_id', 'books', 'id');
 CALL library_add_fk_if_missing(
     'reservations', 'fk_reservations_book', 'book_id',
     'books', 'id', 'RESTRICT'
 );
+CALL library_assert_no_orphans('reservations', 'student_id', 'students', 'id');
 CALL library_add_fk_if_missing(
     'reservations', 'fk_reservations_student', 'student_id',
     'students', 'id', 'RESTRICT'
 );
+CALL library_assert_no_orphans('reservations', 'borrow_transaction_id', 'borrow_transactions', 'id');
 CALL library_add_fk_if_missing(
     'reservations', 'fk_reservations_transaction', 'borrow_transaction_id',
     'borrow_transactions', 'id', 'SET NULL'
@@ -310,17 +365,39 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(190) NOT NULL UNIQUE,
     phone VARCHAR(30) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    -- No default administrator is seeded. Register normally, then promote explicitly:
-    -- UPDATE users SET role='admin' WHERE email='admin@example.com';
-    role ENUM('student','librarian','admin') NOT NULL,
+    role ENUM('student','librarian','admin') NOT NULL COMMENT 'librarian is the canonical seller role',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_users_role_active (role, is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Preserve exactly one pre-migration users snapshot.
+SET @users_backup_exists = (
+    SELECT COUNT(*) FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'users_backup_marketplace_20260722'
+);
+SET @create_users_backup = IF(
+    @users_backup_exists = 0,
+    'CREATE TABLE `users_backup_marketplace_20260722` LIKE `users`',
+    'SELECT 1'
+);
+PREPARE statement_to_run FROM @create_users_backup;
+EXECUTE statement_to_run;
+DEALLOCATE PREPARE statement_to_run;
+SET @copy_users_backup = IF(
+    @users_backup_exists = 0,
+    'INSERT INTO `users_backup_marketplace_20260722` SELECT * FROM `users`',
+    'SELECT 1'
+);
+PREPARE statement_to_run FROM @copy_users_backup;
+EXECUTE statement_to_run;
+DEALLOCATE PREPARE statement_to_run;
+
 CALL library_add_column_if_missing('students', 'user_id', 'BIGINT UNSIGNED NULL AFTER `id`');
 CALL library_add_unique_index_if_missing('students', 'uq_students_user_id', '(`user_id`)');
+CALL library_assert_no_orphans('students', 'user_id', 'users', 'id');
 CALL library_add_fk_if_missing('students', 'fk_students_user', 'user_id', 'users', 'id', 'SET NULL');
 
 CALL library_add_column_if_missing('books', 'user_id', 'BIGINT UNSIGNED NULL AFTER `id`');
@@ -329,16 +406,49 @@ CALL library_add_column_if_missing('books', 'rental_price', 'DECIMAL(12,2) NULL 
 CALL library_add_column_if_missing('books', 'listing_type', 'ENUM(''sale'',''rental'',''both'') NOT NULL DEFAULT ''rental'' AFTER `rental_price`');
 CALL library_add_column_if_missing('books', 'address', 'VARCHAR(255) NULL AFTER `listing_type`');
 CALL library_add_column_if_missing('books', 'phone', 'VARCHAR(30) NULL AFTER `address`');
+CALL library_add_column_if_missing('books', 'ebook_file', 'VARCHAR(255) NULL COMMENT ''Random server-side filename only'' AFTER `phone`');
+CALL library_add_column_if_missing('books', 'ebook_original_name', 'VARCHAR(255) NULL AFTER `ebook_file`');
+CALL library_add_column_if_missing('books', 'ebook_mime', 'VARCHAR(100) NULL AFTER `ebook_original_name`');
+CALL library_add_column_if_missing('books', 'ebook_size', 'BIGINT UNSIGNED NULL AFTER `ebook_mime`');
+CALL library_add_column_if_missing('books', 'video_source', 'ENUM(''none'',''url'',''upload'') NOT NULL DEFAULT ''none'' AFTER `ebook_size`');
+CALL library_add_column_if_missing('books', 'video_url', 'TEXT NULL AFTER `video_source`');
+CALL library_add_column_if_missing('books', 'video_file', 'VARCHAR(255) NULL COMMENT ''Random server-side filename only'' AFTER `video_url`');
+CALL library_add_column_if_missing('books', 'video_original_name', 'VARCHAR(255) NULL AFTER `video_file`');
+CALL library_add_column_if_missing('books', 'video_mime', 'VARCHAR(100) NULL AFTER `video_original_name`');
+CALL library_add_column_if_missing('books', 'video_size', 'BIGINT UNSIGNED NULL AFTER `video_mime`');
 CALL library_add_index_if_missing('books', 'idx_books_owner', '(`user_id`, `is_active`)');
+CALL library_assert_no_orphans('books', 'user_id', 'users', 'id');
 CALL library_add_fk_if_missing('books', 'fk_books_user', 'user_id', 'users', 'id', 'SET NULL');
 
 -- Public registration intentionally exposes only student/librarian.
--- Promote a trusted account explicitly after registration when global legacy inventory must be managed:
--- UPDATE users SET role='admin' WHERE email='admin@example.com';
-ALTER TABLE users MODIFY role ENUM('student','librarian','admin') NOT NULL;
+-- `librarian` remains the canonical database role for marketplace sellers.
+ALTER TABLE users
+    MODIFY role ENUM('student','librarian','admin') NOT NULL
+    COMMENT 'librarian is the canonical seller role';
+
+-- Password hash was generated by PHP password_hash() with PASSWORD_DEFAULT.
+-- Re-running this migration restores the configured Super Admin role/password.
+INSERT INTO users (first_name,last_name,class_name,email,phone,password_hash,role,is_active)
+VALUES (
+    'Super',
+    'Admin',
+    NULL,
+    'asomiddinmeliboyev048@gmail.com',
+    '+998000000000',
+    '$2y$12$3Gl3vXYv0bENH.68mDd05uCA.62SuYlnmWq5pxIWcslvYgZiUL7B.',
+    'admin',
+    1
+)
+ON DUPLICATE KEY UPDATE
+    password_hash = VALUES(password_hash),
+    role = 'admin',
+    is_active = 1;
 
 DROP PROCEDURE IF EXISTS library_add_fk_if_missing;
+DROP PROCEDURE IF EXISTS library_assert_no_orphans;
 DROP PROCEDURE IF EXISTS library_add_unique_index_if_missing;
 DROP PROCEDURE IF EXISTS library_add_index_if_missing;
 DROP PROCEDURE IF EXISTS library_drop_column_if_present;
 DROP PROCEDURE IF EXISTS library_add_column_if_missing;
+
+SET FOREIGN_KEY_CHECKS = 1;

@@ -1,6 +1,30 @@
 <?php
 declare(strict_types=1);
 
+/** PHP 7.4-compatible replacements for PHP 8 string helpers. */
+function app_string_starts_with(string $haystack, string $needle): bool
+{
+    if ($needle === '') {
+        return true;
+    }
+
+    return strncmp($haystack, $needle, strlen($needle)) === 0;
+}
+
+function app_string_ends_with(string $haystack, string $needle): bool
+{
+    if ($needle === '') {
+        return true;
+    }
+
+    $needleLength = strlen($needle);
+    if ($needleLength > strlen($haystack)) {
+        return false;
+    }
+
+    return substr($haystack, -$needleLength) === $needle;
+}
+
 if (session_status() !== PHP_SESSION_ACTIVE) {
     ini_set('session.use_only_cookies', '1');
     ini_set('session.use_strict_mode', '1');
@@ -28,9 +52,9 @@ if (!is_string($appUrl) || trim($appUrl) === '') {
     $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
     $appUrl = '';
 
-    if ($applicationRoot !== false && $scriptFilename !== false && str_starts_with($scriptFilename, $applicationRoot)) {
+    if ($applicationRoot !== false && $scriptFilename !== false && app_string_starts_with($scriptFilename, $applicationRoot)) {
         $relativeScript = str_replace(DIRECTORY_SEPARATOR, '/', substr($scriptFilename, strlen($applicationRoot)));
-        if ($relativeScript !== '' && str_ends_with($scriptName, $relativeScript)) {
+        if ($relativeScript !== '' && app_string_ends_with($scriptName, $relativeScript)) {
             $appUrl = substr($scriptName, 0, -strlen($relativeScript));
         }
     }
@@ -38,7 +62,7 @@ if (!is_string($appUrl) || trim($appUrl) === '') {
     if ($appUrl === '') {
         $documentRootValue = trim((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
         $documentRoot = $documentRootValue !== '' ? realpath($documentRootValue) : false;
-        if ($documentRoot !== false && $documentRoot !== DIRECTORY_SEPARATOR && $applicationRoot !== false && str_starts_with($applicationRoot, $documentRoot)) {
+        if ($documentRoot !== false && $documentRoot !== DIRECTORY_SEPARATOR && $applicationRoot !== false && app_string_starts_with($applicationRoot, $documentRoot)) {
             $relativeRoot = str_replace(DIRECTORY_SEPARATOR, '/', substr($applicationRoot, strlen($documentRoot)));
             $appUrl = '/' . trim($relativeRoot, '/');
         } else {
