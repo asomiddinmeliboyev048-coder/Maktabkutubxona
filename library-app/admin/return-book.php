@@ -2,8 +2,12 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/db.php';
+$user = require_any_role($pdo, ['librarian', 'admin']);
+$isAdmin = $user['role'] === 'admin';
+$ownerClause = $isAdmin ? '' : ' AND b.user_id = :user_id';
+$ownerParams = $isAdmin ? [] : ['user_id' => $user['id']];
 
-sync_overdue_transactions($pdo);
+sync_overdue_transactions($pdo, $isAdmin ? null : (int) $user['id']);
 $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -25,10 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  FROM borrow_transactions bt
                  INNER JOIN books b ON b.id = bt.book_id
                  INNER JOIN students s ON s.id = bt.student_id
-                 WHERE bt.id = :transaction_id
+                 WHERE bt.id = :transaction_id AND (:is_admin = 1 OR b.user_id = :user_id)
                  FOR UPDATE"
             );
-            $transactionStatement->execute(['transaction_id' => $transactionId]);
+            $transactionStatement->execute(['transaction_id' => $transactionId, 'is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
             $transaction = $transactionStatement->fetch();
 
             if (!$transaction) {
@@ -49,9 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $stockStatement = $pdo->prepare(
-                'UPDATE books SET available_copies = LEAST(available_copies + 1, total_copies) WHERE id = :book_id'
+                'UPDATE books SET available_copies = LEAST(available_copies + 1, total_copies) WHERE id = :book_id AND (:is_admin = 1 OR user_id = :user_id)'
             );
-            $stockStatement->execute(['book_id' => $transaction['book_id']]);
+            $stockStatement->execute(['book_id' => $transaction['book_id'], 'is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
             if ($stockStatement->rowCount() !== 1) {
                 throw new RuntimeException('Kitob qoldig‘ini yangilab bo‘lmadi.');
             }
@@ -84,10 +88,10 @@ $loanStatement = $pdo->prepare(
      FROM borrow_transactions bt
      INNER JOIN books b ON b.id = bt.book_id
      INNER JOIN students s ON s.id = bt.student_id
-     WHERE bt.status IN ('borrowed', 'overdue')
+     WHERE bt.status IN ('borrowed', 'overdue') AND (:is_admin = 1 OR b.user_id = :user_id)
      ORDER BY CASE WHEN bt.status = 'overdue' THEN 0 ELSE 1 END, bt.due_date ASC"
 );
-$loanStatement->execute();
+$loanStatement->execute(['is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
 $activeLoans = $loanStatement->fetchAll();
 $flash = get_flash();
 ?>

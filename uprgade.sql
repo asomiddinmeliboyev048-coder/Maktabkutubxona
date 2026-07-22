@@ -301,6 +301,42 @@ CALL library_add_fk_if_missing(
     'borrow_transactions', 'id', 'SET NULL'
 );
 
+-- Role-based marketplace users. Existing books intentionally remain ownerless.
+CREATE TABLE IF NOT EXISTS users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(80) NOT NULL,
+    last_name VARCHAR(80) NOT NULL,
+    class_name VARCHAR(50) DEFAULT NULL,
+    email VARCHAR(190) NOT NULL UNIQUE,
+    phone VARCHAR(30) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    -- No default administrator is seeded. Register normally, then promote explicitly:
+    -- UPDATE users SET role='admin' WHERE email='admin@example.com';
+    role ENUM('student','librarian','admin') NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_users_role_active (role, is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CALL library_add_column_if_missing('students', 'user_id', 'BIGINT UNSIGNED NULL AFTER `id`');
+CALL library_add_unique_index_if_missing('students', 'uq_students_user_id', '(`user_id`)');
+CALL library_add_fk_if_missing('students', 'fk_students_user', 'user_id', 'users', 'id', 'SET NULL');
+
+CALL library_add_column_if_missing('books', 'user_id', 'BIGINT UNSIGNED NULL AFTER `id`');
+CALL library_add_column_if_missing('books', 'price', 'DECIMAL(12,2) NULL AFTER `available_copies`');
+CALL library_add_column_if_missing('books', 'rental_price', 'DECIMAL(12,2) NULL AFTER `price`');
+CALL library_add_column_if_missing('books', 'listing_type', 'ENUM(''sale'',''rental'',''both'') NOT NULL DEFAULT ''rental'' AFTER `rental_price`');
+CALL library_add_column_if_missing('books', 'address', 'VARCHAR(255) NULL AFTER `listing_type`');
+CALL library_add_column_if_missing('books', 'phone', 'VARCHAR(30) NULL AFTER `address`');
+CALL library_add_index_if_missing('books', 'idx_books_owner', '(`user_id`, `is_active`)');
+CALL library_add_fk_if_missing('books', 'fk_books_user', 'user_id', 'users', 'id', 'SET NULL');
+
+-- Public registration intentionally exposes only student/librarian.
+-- Promote a trusted account explicitly after registration when global legacy inventory must be managed:
+-- UPDATE users SET role='admin' WHERE email='admin@example.com';
+ALTER TABLE users MODIFY role ENUM('student','librarian','admin') NOT NULL;
+
 DROP PROCEDURE IF EXISTS library_add_fk_if_missing;
 DROP PROCEDURE IF EXISTS library_add_unique_index_if_missing;
 DROP PROCEDURE IF EXISTS library_add_index_if_missing;
