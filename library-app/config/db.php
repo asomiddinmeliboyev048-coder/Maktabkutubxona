@@ -1,15 +1,6 @@
 <?php
 declare(strict_types=1);
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_set_cookie_params([
-        'httponly' => true,
-        'samesite' => 'Lax',
-        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
-    ]);
-    session_start();
-}
-
 const APP_NAME = 'Maktab Kutubxonasi';
 
 /*
@@ -17,6 +8,16 @@ const APP_NAME = 'Maktab Kutubxonasi';
  * C:\xampp\htdocs\library-app\library-app
  */
 const APP_URL = '/library-app/library-app';
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_set_cookie_params([
+        'path' => rtrim(APP_URL, '/') . '/',
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    ]);
+    session_start();
+}
 
 const DB_HOST = '127.0.0.1';
 const DB_PORT = '3306';

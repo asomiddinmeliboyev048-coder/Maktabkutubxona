@@ -61,6 +61,7 @@ $sql .= ' GROUP BY b.id, b.title, b.author, b.description, b.cover_image, b.tota
 $bookStatement = $pdo->prepare($sql);
 $bookStatement->execute($params);
 $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
+$flash = get_flash();
 ?>
 <!doctype html>
 <html lang="uz">
@@ -90,6 +91,15 @@ $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
         </div>
     </div>
 </nav>
+
+<?php if ($flash): ?>
+    <div class="container pt-3">
+        <div class="alert alert-<?= e($flash['type']) ?> alert-dismissible fade show" role="alert">
+            <?= e($flash['message']) ?>
+            <button class="btn-close" type="button" data-bs-dismiss="alert" aria-label="Yopish"></button>
+        </div>
+    </div>
+<?php endif; ?>
 
 <header class="catalog-hero">
     <div class="container position-relative">

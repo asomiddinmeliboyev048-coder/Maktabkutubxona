@@ -122,6 +122,9 @@ a { color: var(--primary); }
 
 .book-card {
     position: relative;
+    display: flex;
+    min-height: 100%;
+    flex-direction: column;
     overflow: hidden;
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -167,7 +170,8 @@ a { color: var(--primary); }
 }
 .availability-ribbon.available { background: rgba(22, 163, 74, .94); }
 .availability-ribbon.unavailable { background: rgba(220, 38, 38, .94); }
-.book-card-body { padding: 21px; }
+.book-card-body { display: flex; flex: 1; flex-direction: column; padding: 21px; }
+.book-card-body > .btn:last-child { margin-top: auto; }
 .book-author { color: var(--muted); font-size: .84rem; font-weight: 600; }
 .book-title { min-height: 48px; font-weight: 800; line-height: 1.35; }
 .rating-stars { display: inline-flex; gap: 2px; color: var(--warning); font-size: .83rem; }

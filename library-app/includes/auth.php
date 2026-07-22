@@ -3,17 +3,25 @@ declare(strict_types=1);
 
 /** Authentication, authorization and session helpers. */
 
+/** @var array{loaded: bool, id: ?int, user: ?array} */
+$GLOBALS['current_user_cache'] = ['loaded' => false, 'id' => null, 'user' => null];
+
+function invalidate_current_user_cache(): void
+{
+    $GLOBALS['current_user_cache'] = ['loaded' => false, 'id' => null, 'user' => null];
+}
+
 function current_user(PDO $pdo): ?array
 {
-    static $loadedUser = null;
-    static $loadedId = null;
-
     $sessionId = filter_var($_SESSION['user_id'] ?? null, FILTER_VALIDATE_INT);
     if (!$sessionId || $sessionId < 1) {
+        invalidate_current_user_cache();
         return null;
     }
-    if ($loadedId === (int) $sessionId) {
-        return $loadedUser;
+
+    $cache = $GLOBALS['current_user_cache'];
+    if ($cache['loaded'] && $cache['id'] === (int) $sessionId) {
+        return $cache['user'];
     }
 
     $statement = $pdo->prepare(
@@ -22,32 +30,38 @@ function current_user(PDO $pdo): ?array
     );
     $statement->execute(['id' => $sessionId]);
     $user = $statement->fetch();
+
     if (!$user || (int) $user['is_active'] !== 1) {
-        logout_user();
+        unset($_SESSION['user_id']);
+        invalidate_current_user_cache();
         return null;
     }
 
-    $loadedId = (int) $sessionId;
-    $loadedUser = $user;
-    return $loadedUser;
+    $GLOBALS['current_user_cache'] = ['loaded' => true, 'id' => (int) $sessionId, 'user' => $user];
+    return $user;
 }
 
 function login_user(array $user): void
 {
+    $userId = filter_var($user['id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$userId || $userId < 1) {
+        throw new InvalidArgumentException('Foydalanuvchi identifikatori yaroqsiz.');
+    }
+
     session_regenerate_id(true);
-    $_SESSION['user_id'] = (int) $user['id'];
+    $_SESSION['user_id'] = (int) $userId;
     unset($_SESSION['csrf_token']);
+    invalidate_current_user_cache();
+    csrf_token();
 }
 
 function logout_user(): void
 {
-    $_SESSION = [];
-    if (ini_get('session.use_cookies')) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], (bool) $params['secure'], (bool) $params['httponly']);
-    }
+    unset($_SESSION['user_id'], $_SESSION['csrf_token']);
+    invalidate_current_user_cache();
     if (session_status() === PHP_SESSION_ACTIVE) {
-        session_destroy();
+        session_regenerate_id(true);
+        csrf_token();
     }
 }
 

@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/db.php';
-$user = require_any_role($pdo, ['librarian', 'admin']);
-$isAdmin = $user['role'] === 'admin';
+$user = require_role($pdo, 'admin');
+$isAdmin = true;
 $ownerClause = $isAdmin ? '' : ' AND b.user_id = :owner_id';
 $ownerParams = $isAdmin ? [] : ['owner_id' => $user['id']];
 
