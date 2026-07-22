@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/config/db.php';
 
 sync_overdue_transactions($pdo);
+library_feature_expire_reservations($pdo);
 
 $errors = [];
 $formData = [
@@ -44,21 +45,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
-            $studentStatement = $pdo->prepare('SELECT id, full_name FROM students WHERE id = :student_id FOR UPDATE');
+            $studentStatement = $pdo->prepare('SELECT id, full_name FROM students WHERE id = :student_id AND is_active = 1 FOR UPDATE');
             $studentStatement->execute(['student_id' => $formData['student_id']]);
             $student = $studentStatement->fetch();
             if (!$student) {
                 throw new RuntimeException('Tanlangan o‘quvchi topilmadi.');
             }
 
-            $bookStatement = $pdo->prepare('SELECT id, title, available_copies FROM books WHERE id = :book_id FOR UPDATE');
+            $bookStatement = $pdo->prepare(
+                "SELECT b.id, b.title, b.available_copies,
+                        (SELECT COUNT(*) FROM reservations r WHERE r.book_id=b.id AND r.status IN ('approved','ready')) AS held_copies
+                 FROM books b WHERE b.id = :book_id AND b.is_active = 1 FOR UPDATE"
+            );
             $bookStatement->execute(['book_id' => $formData['book_id']]);
             $book = $bookStatement->fetch();
             if (!$book) {
                 throw new RuntimeException('Tanlangan kitob topilmadi.');
             }
-            if ((int) $book['available_copies'] < 1) {
-                throw new RuntimeException('Bu kitobning mavjud nusxasi qolmagan.');
+            if ((int) $book['available_copies'] - (int) $book['held_copies'] < 1) {
+                throw new RuntimeException('Erkin nusxa qolmagan; javondagi nusxalar tasdiqlangan band qilishlar uchun ajratilgan.');
+            }
+
+            $reservationStatement = $pdo->prepare(
+                "SELECT id, status FROM reservations
+                 WHERE book_id = :book_id AND student_id = :student_id
+                   AND status IN ('pending', 'approved', 'ready')
+                 LIMIT 1 FOR UPDATE"
+            );
+            $reservationStatement->execute([
+                'book_id' => $formData['book_id'],
+                'student_id' => $formData['student_id'],
+            ]);
+            if ($reservationStatement->fetch()) {
+                throw new RuntimeException('Bu o‘quvchining shu kitob uchun faol so‘rovi bor. Uni “Band qilishlar” sahifasidagi jarayon orqali bering.');
+            }
+
+            $activeLoanStatement = $pdo->prepare(
+                "SELECT id FROM borrow_transactions
+                 WHERE book_id = :book_id AND student_id = :student_id
+                   AND status IN ('borrowed', 'overdue') AND return_date IS NULL
+                 LIMIT 1 FOR UPDATE"
+            );
+            $activeLoanStatement->execute([
+                'book_id' => $formData['book_id'],
+                'student_id' => $formData['student_id'],
+            ]);
+            if ($activeLoanStatement->fetchColumn()) {
+                throw new RuntimeException('Bu o‘quvchida ushbu kitobning faol nusxasi allaqachon mavjud.');
             }
 
             $transactionStatement = $pdo->prepare(
@@ -92,12 +125,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$studentStatement = $pdo->prepare('SELECT id, full_name, class_name, student_code FROM students ORDER BY full_name ASC');
+$studentStatement = $pdo->prepare('SELECT id, full_name, class_name, student_code FROM students WHERE is_active = 1 ORDER BY full_name ASC');
 $studentStatement->execute();
 $students = $studentStatement->fetchAll();
 
 $availableBookStatement = $pdo->prepare(
-    'SELECT id, title, author, available_copies, total_copies FROM books WHERE available_copies > 0 ORDER BY title ASC'
+    "SELECT b.id, b.title, b.author, b.available_copies, b.total_copies,
+            b.available_copies - (SELECT COUNT(*) FROM reservations r WHERE r.book_id=b.id AND r.status IN ('approved','ready')) AS free_copies
+     FROM books b
+     WHERE b.is_active=1 AND b.available_copies > (SELECT COUNT(*) FROM reservations r WHERE r.book_id=b.id AND r.status IN ('approved','ready'))
+     ORDER BY b.title ASC"
 );
 $availableBookStatement->execute();
 $availableBooks = $availableBookStatement->fetchAll();
@@ -128,7 +165,7 @@ $flash = get_flash();
 <div class="admin-layout">
     <aside class="admin-sidebar">
         <a class="admin-brand" href="<?= e(APP_URL) ?>/admin/index.php"><span><i class="fa-solid fa-book-open"></i></span><div><strong>Kutubxona</strong><small>Boshqaruv paneli</small></div></a>
-        <nav class="admin-nav"><a href="<?= e(APP_URL) ?>/admin/index.php"><i class="fa-solid fa-chart-pie"></i>Dashboard</a><a href="<?= e(APP_URL) ?>/admin/add-book.php"><i class="fa-solid fa-square-plus"></i>Kitob qo‘shish</a><a class="active" href="<?= e(APP_URL) ?>/admin/issue-book.php"><i class="fa-solid fa-arrow-up-right-from-square"></i>Kitob berish</a><a href="<?= e(APP_URL) ?>/admin/return-book.php"><i class="fa-solid fa-rotate-left"></i>Kitobni qaytarish</a><div class="nav-divider"></div><a href="<?= e(APP_URL) ?>/index.php"><i class="fa-solid fa-globe"></i>Ochiq katalog</a></nav>
+        <?= library_feature_admin_nav('issue') ?>
     </aside>
     <main class="admin-main">
         <header class="admin-topbar"><button class="sidebar-toggle" type="button" data-sidebar-toggle><i class="fa-solid fa-bars"></i></button><div><p class="admin-eyebrow">Biriktirish operatsiyasi</p><h1>Kitob berish</h1></div><a class="btn btn-outline-light" href="<?= e(APP_URL) ?>/admin/index.php"><i class="fa-solid fa-arrow-left me-2"></i>Dashboard</a></header>
@@ -146,7 +183,7 @@ $flash = get_flash();
                     <form method="post" action="<?= e(APP_URL) ?>/admin/issue-book.php" class="admin-form" novalidate>
                         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
                         <div class="mb-4"><label class="form-label" for="student_id">O‘quvchi</label><select class="form-select form-select-lg" id="student_id" name="student_id" required><option value="">O‘quvchini tanlang</option><?php foreach ($students as $student): ?><option value="<?= (int) $student['id'] ?>" <?= (int) $formData['student_id'] === (int) $student['id'] ? 'selected' : '' ?>><?= e($student['full_name']) ?> — <?= e($student['class_name']) ?> (<?= e($student['student_code']) ?>)</option><?php endforeach; ?></select></div>
-                        <div class="mb-4"><label class="form-label" for="book_id">Mavjud kitob</label><select class="form-select form-select-lg" id="book_id" name="book_id" required><option value="">Kitobni tanlang</option><?php foreach ($availableBooks as $book): ?><option value="<?= (int) $book['id'] ?>" <?= (int) $formData['book_id'] === (int) $book['id'] ? 'selected' : '' ?>><?= e($book['title']) ?> — <?= e($book['author']) ?> (<?= (int) $book['available_copies'] ?>/<?= (int) $book['total_copies'] ?>)</option><?php endforeach; ?></select></div>
+                        <div class="mb-4"><label class="form-label" for="book_id">Mavjud kitob</label><select class="form-select form-select-lg" id="book_id" name="book_id" required><option value="">Kitobni tanlang</option><?php foreach ($availableBooks as $book): ?><option value="<?= (int) $book['id'] ?>" <?= (int) $formData['book_id'] === (int) $book['id'] ? 'selected' : '' ?>><?= e($book['title']) ?> — <?= e($book['author']) ?> (<?= (int) $book['free_copies'] ?>/<?= (int) $book['total_copies'] ?> erkin)</option><?php endforeach; ?></select></div>
                         <div class="row g-3 mb-4"><div class="col-sm-6"><label class="form-label" for="borrow_date">Berilgan sana</label><input type="date" class="form-control form-control-lg" id="borrow_date" name="borrow_date" value="<?= e($formData['borrow_date']) ?>" required></div><div class="col-sm-6"><label class="form-label" for="due_date">Qaytarish muddati</label><input type="date" class="form-control form-control-lg" id="due_date" name="due_date" value="<?= e($formData['due_date']) ?>" required></div></div>
                         <button class="btn btn-success btn-lg w-100" type="submit" <?= $students === [] || $availableBooks === [] ? 'disabled' : '' ?>><i class="fa-solid fa-arrow-up-right-from-square me-2"></i>Kitobni berish</button>
                     </form>

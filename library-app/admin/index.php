@@ -4,12 +4,14 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/config/db.php';
 
 sync_overdue_transactions($pdo);
+library_feature_expire_reservations($pdo);
 
 $statsStatement = $pdo->prepare(
     "SELECT
-        (SELECT COALESCE(SUM(total_copies), 0) FROM books) AS total_books,
-        (SELECT COUNT(*) FROM books) AS total_titles,
-        (SELECT COUNT(*) FROM students) AS total_students,
+        (SELECT COALESCE(SUM(total_copies), 0) FROM books WHERE is_active=1) AS total_books,
+        (SELECT COUNT(*) FROM books WHERE is_active=1) AS total_titles,
+        (SELECT COUNT(*) FROM students WHERE is_active=1) AS total_students,
+        (SELECT COUNT(*) FROM reservations WHERE status='pending') AS pending_reservations,
         (SELECT COUNT(*) FROM borrow_transactions WHERE status IN ('borrowed', 'overdue')) AS active_loans,
         (SELECT COUNT(*) FROM borrow_transactions WHERE status = 'overdue') AS overdue_loans"
 );
@@ -39,11 +41,12 @@ $inventoryStatement = $pdo->prepare(
     "SELECT b.id, b.title, b.author, b.cover_image, b.total_copies, b.available_copies, c.name AS category_name
      FROM books b
      INNER JOIN categories c ON c.id = b.category_id
+     WHERE b.is_active=1
      ORDER BY b.created_at DESC, b.title ASC
      LIMIT 8"
 );
 $inventoryStatement->execute();
-$inventory = $inventoryStatement->fetchAll();
+$inventory = library_feature_enrich_books($pdo, $inventoryStatement->fetchAll());
 $flash = get_flash();
 ?>
 <!doctype html>
@@ -63,14 +66,7 @@ $flash = get_flash();
             <span><i class="fa-solid fa-book-open"></i></span>
             <div><strong>Kutubxona</strong><small>Boshqaruv paneli</small></div>
         </a>
-        <nav class="admin-nav" aria-label="Admin navigatsiyasi">
-            <a class="active" href="<?= e(APP_URL) ?>/admin/index.php"><i class="fa-solid fa-chart-pie"></i>Dashboard</a>
-            <a href="<?= e(APP_URL) ?>/admin/add-book.php"><i class="fa-solid fa-square-plus"></i>Kitob qo‘shish</a>
-            <a href="<?= e(APP_URL) ?>/admin/issue-book.php"><i class="fa-solid fa-arrow-up-right-from-square"></i>Kitob berish</a>
-            <a href="<?= e(APP_URL) ?>/admin/return-book.php"><i class="fa-solid fa-rotate-left"></i>Kitobni qaytarish</a>
-            <div class="nav-divider"></div>
-            <a href="<?= e(APP_URL) ?>/index.php"><i class="fa-solid fa-globe"></i>Ochiq katalog</a>
-        </nav>
+        <?= library_feature_admin_nav('dashboard') ?>
         <div class="sidebar-footer"><i class="fa-solid fa-shield-halved"></i><span>Xavfsiz PDO tizimi<small><?= date('Y') ?> versiya</small></span></div>
     </aside>
 
@@ -107,6 +103,9 @@ $flash = get_flash();
             <div><p class="admin-eyebrow">Tezkor amallar</p><h2 class="h4 mb-0">Bugun nima qilamiz?</h2></div>
             <div class="d-flex flex-wrap gap-2">
                 <a class="btn btn-primary" href="<?= e(APP_URL) ?>/admin/add-book.php"><i class="fa-solid fa-plus me-2"></i>Yangi kitob</a>
+                <a class="btn btn-outline-light" href="<?= e(APP_URL) ?>/admin/books.php"><i class="fa-solid fa-book me-2"></i>Kitoblar</a>
+                <a class="btn btn-outline-light" href="<?= e(APP_URL) ?>/admin/students.php"><i class="fa-solid fa-users me-2"></i>O‘quvchilar</a>
+                <a class="btn btn-outline-light" href="<?= e(APP_URL) ?>/admin/reservations.php"><i class="fa-solid fa-calendar-check me-2"></i>So‘rovlar (<?= (int) $stats['pending_reservations'] ?>)</a>
                 <a class="btn btn-success" href="<?= e(APP_URL) ?>/admin/issue-book.php"><i class="fa-solid fa-arrow-right me-2"></i>Kitob berish</a>
                 <a class="btn btn-outline-light" href="<?= e(APP_URL) ?>/admin/return-book.php"><i class="fa-solid fa-rotate-left me-2"></i>Qaytarib olish</a>
             </div>
@@ -124,7 +123,7 @@ $flash = get_flash();
                                 <tr>
                                     <td><div class="book-cell"><img src="<?= e(book_cover_url($book['cover_image'])) ?>" alt=""><div><strong><?= e($book['title']) ?></strong><small><?= e($book['author']) ?></small></div></div></td>
                                     <td><span class="dark-badge"><?= e($book['category_name']) ?></span></td>
-                                    <td class="text-center"><span class="stock-count <?= (int) $book['available_copies'] > 0 ? 'in-stock' : 'out-stock' ?>"><?= (int) $book['available_copies'] ?>/<?= (int) $book['total_copies'] ?></span></td>
+                                    <td class="text-center"><span class="stock-count <?= (int) $book['free_copies'] > 0 ? 'in-stock' : 'out-stock' ?>"><?= (int) $book['free_copies'] ?>/<?= (int) $book['total_copies'] ?> erkin</span></td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>

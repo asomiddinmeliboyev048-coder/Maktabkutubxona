@@ -66,6 +66,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.querySelectorAll('[data-confirm-action]').forEach((formControl) => {
+        const form = formControl.closest('form');
+        if (!form) return;
+        form.addEventListener('submit', (event) => {
+            if (!window.confirm(formControl.getAttribute('data-confirm-action') || 'Amalni tasdiqlaysizmi?')) event.preventDefault();
+        });
+    });
+
     const borrowDateInput = document.getElementById('borrow_date');
     const dueDateInput = document.getElementById('due_date');
     if (borrowDateInput && dueDateInput) {
@@ -81,6 +89,30 @@ document.addEventListener('DOMContentLoaded', () => {
             dueDateInput.min = borrowDateInput.value;
         });
     }
+
+    document.querySelectorAll('[data-interactive-footer]').forEach((footer) => {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        let frameId = 0;
+
+        const resetFooter = () => {
+            footer.style.setProperty('--footer-x', '0px');
+            footer.style.setProperty('--footer-y', '0px');
+        };
+
+        footer.addEventListener('pointermove', (event) => {
+            if (reduceMotion.matches || event.pointerType === 'touch') return;
+            const bounds = footer.getBoundingClientRect();
+            const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 18;
+            const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 12;
+            window.cancelAnimationFrame(frameId);
+            frameId = window.requestAnimationFrame(() => {
+                footer.style.setProperty('--footer-x', `${x.toFixed(2)}px`);
+                footer.style.setProperty('--footer-y', `${y.toFixed(2)}px`);
+            });
+        });
+        footer.addEventListener('pointerleave', resetFooter);
+        reduceMotion.addEventListener('change', resetFooter);
+    });
 
     window.setTimeout(() => {
         document.querySelectorAll('.alert.alert-success').forEach((alertElement) => {

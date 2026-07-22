@@ -1,0 +1,33 @@
+.availability-summary { display: flex; flex-wrap: wrap; align-items: stretch; gap: 12px; }
+.availability-box { min-width: 220px; }
+.availability-box.status-available { color: #166534; background: #dcfce7; }
+.availability-box.status-busy { color: #92400e; background: #fef3c7; }
+.availability-box.status-unavailable { color: #991b1b; background: #fee2e2; }
+.stock-metric { display: grid; min-width: 82px; place-content: center; padding: 10px 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; text-align: center; }
+.stock-metric strong { font-size: 1.25rem; }
+.stock-metric span { color: var(--muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; }
+.pickup-note { color: #475569; }
+.reservation-card { top: 104px; overflow: hidden; }
+.reservation-card::before { position: absolute; width: 170px; height: 170px; content: ''; top: -90px; right: -80px; border-radius: 50%; background: rgba(37, 99, 235, .08); }
+.reservation-icon { display: grid; width: 56px; height: 56px; place-items: center; border-radius: 17px; color: #fff; background: linear-gradient(135deg, #2563eb, #7c3aed); box-shadow: 0 12px 28px rgba(37,99,235,.22); font-size: 1.3rem; }
+.loan-list { display: grid; gap: 10px; }
+.loan-row { display: flex; align-items: center; gap: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; }
+.loan-row > div { min-width: 0; flex: 1; }
+.loan-row strong, .loan-row small { display: block; }
+.loan-row small { margin-top: 3px; color: var(--muted); font-size: .77rem; }
+.loan-icon { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border-radius: 12px; color: var(--primary); background: #dbeafe; }
+.loan-state { padding: 6px 9px; border-radius: 999px; color: #1d4ed8; background: #dbeafe; font-size: .67rem; font-weight: 800; }
+.loan-state.overdue { color: #b91c1c; background: #fee2e2; }
+.interactive-footer { --footer-x: 0px; --footer-y: 0px; position: relative; overflow: hidden; min-height: 270px; background: radial-gradient(circle at 80% 20%, rgba(124,58,237,.42), transparent 30%), linear-gradient(135deg, #0f172a, #172554); }
+.interactive-footer::before { position: absolute; content: ''; inset: 0; opacity: .12; background-image: linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.18) 1px, transparent 1px); background-size: 38px 38px; mask-image: linear-gradient(to right, transparent, #000); }
+.footer-mark { display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid rgba(255,255,255,.24); border-radius: 16px; color: #fff; background: rgba(255,255,255,.1); font-size: 1.25rem; backdrop-filter: blur(8px); }
+.footer-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(255,255,255,.13); color: #94a3b8; font-size: .78rem; }
+.footer-orbit { position: absolute; inset: 0; transform: translate3d(var(--footer-x), var(--footer-y), 0); transition: transform .25s ease-out; will-change: transform; }
+.footer-orbit i { position: absolute; z-index: 0; color: rgba(255,255,255,.12); animation: footer-float 6s ease-in-out infinite; }
+.interactive-footer .btn:focus-visible { outline: 3px solid #fbbf24; outline-offset: 4px; }
+.footer-orbit i:nth-child(1) { top: 28px; right: 12%; font-size: 3.5rem; transform: rotate(12deg); }
+.footer-orbit i:nth-child(2) { bottom: 34px; right: 34%; font-size: 1.2rem; animation-delay: -2s; }
+.footer-orbit i:nth-child(3) { top: 55%; left: 4%; font-size: 2rem; animation-delay: -4s; }
+@keyframes footer-float { 0%, 100% { translate: 0 0; rotate: 0deg; } 50% { translate: 0 -12px; rotate: 5deg; } }
+@media (max-width: 767.98px) { .details-cover-frame { max-width: 250px; margin: auto; } .loan-row { align-items: flex-start; flex-wrap: wrap; } .loan-state { margin-left: 52px; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }

@@ -334,3 +334,6 @@ function sync_overdue_transactions(PDO $pdo): void
 
     $statement->execute();
 }
+
+
+require_once dirname(__DIR__) . '/includes/feature_helpers.php';

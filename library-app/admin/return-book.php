@@ -104,7 +104,7 @@ $flash = get_flash();
 <div class="admin-layout">
     <aside class="admin-sidebar">
         <a class="admin-brand" href="<?= e(APP_URL) ?>/admin/index.php"><span><i class="fa-solid fa-book-open"></i></span><div><strong>Kutubxona</strong><small>Boshqaruv paneli</small></div></a>
-        <nav class="admin-nav"><a href="<?= e(APP_URL) ?>/admin/index.php"><i class="fa-solid fa-chart-pie"></i>Dashboard</a><a href="<?= e(APP_URL) ?>/admin/add-book.php"><i class="fa-solid fa-square-plus"></i>Kitob qo‘shish</a><a href="<?= e(APP_URL) ?>/admin/issue-book.php"><i class="fa-solid fa-arrow-up-right-from-square"></i>Kitob berish</a><a class="active" href="<?= e(APP_URL) ?>/admin/return-book.php"><i class="fa-solid fa-rotate-left"></i>Kitobni qaytarish</a><div class="nav-divider"></div><a href="<?= e(APP_URL) ?>/index.php"><i class="fa-solid fa-globe"></i>Ochiq katalog</a></nav>
+        <?= library_feature_admin_nav('return') ?>
     </aside>
     <main class="admin-main">
         <header class="admin-topbar"><button class="sidebar-toggle" type="button" data-sidebar-toggle><i class="fa-solid fa-bars"></i></button><div><p class="admin-eyebrow">Qabul qilish operatsiyasi</p><h1>Kitobni qaytarib olish</h1></div><span class="active-counter"><i class="fa-solid fa-book-open-reader"></i><?= count($activeLoans) ?> ta o‘quvchida</span></header>
