@@ -4,14 +4,104 @@ declare(strict_types=1);
 const APP_NAME = 'Maktab Kutubxonasi';
 
 /*
- * Loyiha manzili:
- * C:\xampp\htdocs\library-app\library-app
+ * APP_URL deployment papkasidan avtomatik aniqlanadi.
+ * Zarur bo‘lsa server muhitida APP_URL=/custom/path orqali aniq berish mumkin.
  */
-const APP_URL = '/library-app/library-app';
+function normalize_app_url_path(string $path): string
+{
+    if ($path === '' || str_contains($path, '\\') || preg_match('/[\x00-\x1F\x7F?#]/', $path)) {
+        return '';
+    }
+
+    $safeSegments = [];
+    foreach (explode('/', $path) as $segment) {
+        if ($segment === '') {
+            continue;
+        }
+        if (preg_match('/[^A-Za-z0-9._~!$&\'()*+,;=:@%\-]/', $segment)) {
+            return '';
+        }
+
+        $decoded = $segment;
+        for ($iteration = 0; $iteration < 3; $iteration++) {
+            $next = rawurldecode($decoded);
+            if ($next === $decoded) {
+                break;
+            }
+            $decoded = $next;
+        }
+        if (
+            $decoded === '.' ||
+            $decoded === '..' ||
+            str_contains($decoded, '/') ||
+            str_contains($decoded, '\\') ||
+            preg_match('/[\x00-\x1F\x7F?#]/', $decoded)
+        ) {
+            return '';
+        }
+        $safeSegments[] = $segment;
+    }
+
+    return $safeSegments === [] ? '' : '/' . implode('/', $safeSegments);
+}
+
+function detect_app_url(string $applicationRoot): string
+{
+    $configured = getenv('APP_URL');
+    if (is_string($configured) && trim($configured) !== '') {
+        $configured = trim($configured);
+        if (str_contains($configured, '\\')) {
+            return '';
+        }
+        $configuredPath = parse_url($configured, PHP_URL_PATH);
+        return normalize_app_url_path(is_string($configuredPath) ? $configuredPath : '');
+    }
+
+    $applicationRoot = str_replace('\\', '/', realpath($applicationRoot) ?: $applicationRoot);
+    $documentRootInput = (string) ($_SERVER['DOCUMENT_ROOT'] ?? '');
+    $documentRoot = $documentRootInput !== '' ? realpath($documentRootInput) : false;
+    if (is_string($documentRoot)) {
+        $documentRoot = rtrim(str_replace('\\', '/', $documentRoot), '/');
+        $compareApplication = DIRECTORY_SEPARATOR === '\\' ? strtolower($applicationRoot) : $applicationRoot;
+        $compareDocument = DIRECTORY_SEPARATOR === '\\' ? strtolower($documentRoot) : $documentRoot;
+        if ($compareApplication === $compareDocument) {
+            return '';
+        }
+        if (str_starts_with($compareApplication, $compareDocument . '/')) {
+            return normalize_app_url_path(substr($applicationRoot, strlen($documentRoot)));
+        }
+    }
+
+    $scriptFilenameInput = (string) ($_SERVER['SCRIPT_FILENAME'] ?? '');
+    $scriptFilename = $scriptFilenameInput !== '' ? realpath($scriptFilenameInput) : false;
+    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    if (is_string($scriptFilename) && $scriptName !== '') {
+        $scriptFilename = str_replace('\\', '/', $scriptFilename);
+        $compareApplication = DIRECTORY_SEPARATOR === '\\' ? strtolower($applicationRoot) : $applicationRoot;
+        $compareScript = DIRECTORY_SEPARATOR === '\\' ? strtolower($scriptFilename) : $scriptFilename;
+        if (str_starts_with($compareScript, $compareApplication . '/')) {
+            $relativeFile = ltrim(substr($scriptFilename, strlen($applicationRoot)), '/');
+            $relativeDirectory = str_replace('\\', '/', dirname($relativeFile));
+            $urlDirectory = str_replace('\\', '/', dirname('/' . ltrim($scriptName, '/')));
+            if ($relativeDirectory !== '.') {
+                foreach (explode('/', trim($relativeDirectory, '/')) as $unusedSegment) {
+                    $urlDirectory = str_replace('\\', '/', dirname($urlDirectory));
+                }
+            }
+            return normalize_app_url_path($urlDirectory);
+        }
+    }
+
+    return '';
+}
+
+define('APP_URL', detect_app_url(dirname(__DIR__)));
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    ini_set('session.use_strict_mode', '1');
     session_set_cookie_params([
-        'path' => rtrim(APP_URL, '/') . '/',
+        'lifetime' => 0,
+        'path' => APP_URL === '' ? '/' : APP_URL . '/',
         'httponly' => true,
         'samesite' => 'Lax',
         'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
