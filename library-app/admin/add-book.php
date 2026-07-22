@@ -608,37 +608,7 @@ $flash = get_flash();
             </div>
         </a>
 
-        <nav class="admin-nav">
-            <a href="<?= e(APP_URL) ?>/admin/index.php">
-                <i class="fa-solid fa-chart-pie"></i>
-                Dashboard
-            </a>
-
-            <a
-                class="active"
-                href="<?= e(APP_URL) ?>/admin/add-book.php"
-            >
-                <i class="fa-solid fa-square-plus"></i>
-                Kitob va muqova
-            </a>
-
-            <a href="<?= e(APP_URL) ?>/admin/issue-book.php">
-                <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                Kitob berish
-            </a>
-
-            <a href="<?= e(APP_URL) ?>/admin/return-book.php">
-                <i class="fa-solid fa-rotate-left"></i>
-                Kitobni qaytarish
-            </a>
-
-            <div class="nav-divider"></div>
-
-            <a href="<?= e(APP_URL) ?>/index.php">
-                <i class="fa-solid fa-globe"></i>
-                Ochiq katalog
-            </a>
-        </nav>
+        <?= library_feature_admin_nav('add-book') ?>
     </aside>
 
     <main class="admin-main">

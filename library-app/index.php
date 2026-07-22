@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config/db.php';
 
+library_feature_expire_reservations($pdo);
+
 $searchInput = $_GET['q'] ?? '';
 $search = is_string($searchInput)
     ? sanitize_input($searchInput)
@@ -29,7 +31,7 @@ $sql = "SELECT
         FROM books b
         INNER JOIN categories c ON c.id = b.category_id
         LEFT JOIN reviews r ON r.book_id = b.id
-        WHERE 1 = 1";
+        WHERE b.is_active = 1";
 $params = [];
 
 if ($search !== '') {
@@ -50,7 +52,7 @@ $sql .= ' GROUP BY b.id, b.title, b.author, b.description, b.cover_image, b.tota
 
 $bookStatement = $pdo->prepare($sql);
 $bookStatement->execute($params);
-$books = $bookStatement->fetchAll();
+$books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
 ?>
 <!doctype html>
 <html lang="uz">
@@ -63,6 +65,7 @@ $books = $bookStatement->fetchAll();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link rel="stylesheet" href="<?= e(APP_URL) ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?= e(APP_URL) ?>/assets/css/features.css">
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top border-bottom">
@@ -149,18 +152,14 @@ $books = $bookStatement->fetchAll();
     <?php else: ?>
         <div class="row g-4">
             <?php foreach ($books as $book): ?>
-                <?php $isAvailable = (int) $book['available_copies'] > 0; ?>
+                <?php $status = (string) $book['availability_status']; ?>
                 <div class="col-sm-6 col-lg-4 col-xl-3">
                     <article class="book-card h-100">
                         <div class="book-cover-wrap">
                             <img class="book-cover" src="<?= e(book_cover_url($book['cover_image'])) ?>" alt="<?= e($book['title']) ?> kitobi muqovasi" loading="lazy">
                             <span class="category-badge"><?= e($book['category_name']) ?></span>
-                            <span class="availability-ribbon <?= $isAvailable ? 'available' : 'unavailable' ?>">
-                                <?php if ($isAvailable): ?>
-                                    Mavjud: <?= (int) $book['available_copies'] ?>/<?= (int) $book['total_copies'] ?>
-                                <?php else: ?>
-                                    Tugagan
-                                <?php endif; ?>
+                            <span class="availability-ribbon <?= e($status) ?>">
+                                <?= e(library_feature_status_label($status)) ?>: <?= (int) $book['free_copies'] ?>/<?= (int) $book['total_copies'] ?>
                             </span>
                         </div>
                         <div class="book-card-body">
@@ -170,7 +169,8 @@ $books = $bookStatement->fetchAll();
                                 <?= render_stars((float) $book['average_rating']) ?>
                                 <span class="rating-number"><?= number_format((float) $book['average_rating'], 1) ?> (<?= (int) $book['review_count'] ?>)</span>
                             </div>
-                            <p class="book-description"><?= e(mb_strimwidth(strip_tags(htmlspecialchars_decode($book['description'], ENT_QUOTES)), 0, 105, '…', 'UTF-8')) ?></p>
+                            <p class="book-description"><?= e(mb_strimwidth(strip_tags(htmlspecialchars_decode($book['description'], ENT_QUOTES)), 0, 88, '…', 'UTF-8')) ?></p>
+                            <div class="catalog-stock mb-3"><span><strong><?= (int) $book['total_copies'] ?></strong> jami</span><span><strong><?= (int) $book['free_copies'] ?></strong> erkin</span><span><strong><?= (int) $book['active_loan_count'] ?></strong> o‘quvchida</span><span><i class="fa-regular fa-calendar me-1"></i><?= e(library_feature_date($book['earliest_pickup_date'], 'aniq emas')) ?></span></div>
                             <a class="btn btn-outline-primary w-100 stretched-link" href="<?= e(APP_URL) ?>/book-details.php?id=<?= (int) $book['id'] ?>">
                                 Batafsil <i class="fa-solid fa-arrow-right ms-2"></i>
                             </a>
@@ -182,10 +182,11 @@ $books = $bookStatement->fetchAll();
     <?php endif; ?>
 </main>
 
-<footer class="public-footer mt-5">
-    <div class="container py-4 d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
-        <p class="mb-0">&copy; <?= date('Y') ?> <?= e(APP_NAME) ?>. Barcha huquqlar himoyalangan.</p>
-        <p class="mb-0"><i class="fa-solid fa-heart text-danger me-1"></i> Kitobxon o‘quvchilar uchun</p>
+<footer class="public-footer interactive-footer mt-5" data-interactive-footer>
+    <div class="footer-orbit" aria-hidden="true"><i class="fa-solid fa-book"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-graduation-cap"></i></div>
+    <div class="container py-5 position-relative">
+        <div class="row g-4 align-items-center"><div class="col-lg-7"><span class="footer-mark"><i class="fa-solid fa-book-open"></i></span><h2 class="h3 text-white mt-3">Har bir sahifa — yangi imkoniyat</h2><p class="mb-0">Kitobni toping, holatini ko‘ring va o‘zingizga qulay kun uchun band qiling.</p></div><div class="col-lg-5 text-lg-end"><a class="btn btn-light rounded-pill px-4" href="#mainNavigation">Yuqoriga <i class="fa-solid fa-arrow-up ms-2"></i></a></div></div>
+        <div class="footer-bottom mt-4 pt-4"><span>&copy; <?= date('Y') ?> <?= e(APP_NAME) ?></span><span><i class="fa-solid fa-shield-heart me-1"></i> O‘quvchilar uchun xavfsiz makon</span></div>
     </div>
 </footer>
 

@@ -249,3 +249,9 @@ a { color: var(--primary); }
     .book-cover-wrap { height: 370px; }
     .details-cover-frame { max-width: 270px; margin: 0 auto; }
 }
+
+
+.availability-ribbon.busy { background: rgba(217, 119, 6, .95); }
+.catalog-stock { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: .7rem; }
+.catalog-stock span { padding: 5px 7px; border-radius: 8px; background: #f1f5f9; }
+.catalog-stock strong { color: var(--ink); }
