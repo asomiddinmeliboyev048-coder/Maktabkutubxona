@@ -322,18 +322,28 @@ function render_stars(float $rating): string
     return $html . '</span>';
 }
 
-function sync_overdue_transactions(PDO $pdo): void
+function sync_overdue_transactions(PDO $pdo, ?int $ownerId = null): void
 {
-    $statement = $pdo->prepare(
-        "UPDATE borrow_transactions
-         SET status = 'overdue'
-         WHERE status = 'borrowed'
-           AND return_date IS NULL
-           AND due_date < CURDATE()"
-    );
+    if ($ownerId === null) {
+        $statement = $pdo->prepare(
+            "UPDATE borrow_transactions
+             SET status = 'overdue'
+             WHERE status = 'borrowed' AND return_date IS NULL AND due_date < CURDATE()"
+        );
+        $statement->execute();
+        return;
+    }
 
-    $statement->execute();
+    $statement = $pdo->prepare(
+        "UPDATE borrow_transactions bt
+         INNER JOIN books b ON b.id = bt.book_id
+         SET bt.status = 'overdue'
+         WHERE bt.status = 'borrowed' AND bt.return_date IS NULL
+           AND bt.due_date < CURDATE() AND b.user_id = :owner_id"
+    );
+    $statement->execute(['owner_id' => $ownerId]);
 }
 
 
+require_once dirname(__DIR__) . '/includes/auth.php';
 require_once dirname(__DIR__) . '/includes/feature_helpers.php';

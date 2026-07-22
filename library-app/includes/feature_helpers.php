@@ -3,16 +3,26 @@ declare(strict_types=1);
 
 /** Shared reservation, availability and display helpers. */
 
-function library_feature_expire_reservations(PDO $pdo): void
+function library_feature_expire_reservations(PDO $pdo, ?int $ownerId = null): void
 {
+    if ($ownerId === null) {
+        $statement = $pdo->prepare(
+            "UPDATE reservations SET status = 'expired'
+             WHERE status IN ('pending', 'approved', 'ready')
+               AND expires_at IS NOT NULL AND expires_at < NOW()"
+        );
+        $statement->execute();
+        return;
+    }
+
     $statement = $pdo->prepare(
-        "UPDATE reservations
-         SET status = 'expired'
-         WHERE status IN ('pending', 'approved', 'ready')
-           AND expires_at IS NOT NULL
-           AND expires_at < NOW()"
+        "UPDATE reservations r INNER JOIN books b ON b.id = r.book_id
+         SET r.status = 'expired'
+         WHERE r.status IN ('pending', 'approved', 'ready')
+           AND r.expires_at IS NOT NULL AND r.expires_at < NOW()
+           AND b.user_id = :owner_id"
     );
-    $statement->execute();
+    $statement->execute(['owner_id' => $ownerId]);
 }
 
 function library_feature_valid_date(string $value): ?DateTimeImmutable
@@ -167,17 +177,45 @@ function library_feature_reservation_label(string $status): string
     return $labels[$status] ?? $status;
 }
 
+function library_feature_listing_label(string $type): string
+{
+    return ['sale' => 'Sotuv', 'rental' => 'Ijara', 'both' => 'Sotuv va ijara'][$type] ?? 'Kutubxona';
+}
+
+function money_uzs($amount): string
+{
+    if ($amount === null || $amount === '') {
+        return '—';
+    }
+    return number_format((float) $amount, 2, '.', ' ') . ' so‘m';
+}
+
+function whatsapp_phone(string $phone): string
+{
+    return preg_replace('/\D+/', '', $phone) ?? '';
+}
+
 function library_feature_admin_nav(string $active): string
 {
-    $items = [
-        'dashboard' => ['admin/index.php', 'fa-chart-pie', 'Dashboard'],
-        'books' => ['admin/books.php', 'fa-book', 'Kitoblar'],
-        'add-book' => ['admin/add-book.php', 'fa-square-plus', 'Kitob qo‘shish'],
-        'students' => ['admin/students.php', 'fa-users', 'O‘quvchilar'],
-        'reservations' => ['admin/reservations.php', 'fa-calendar-check', 'Band qilishlar'],
-        'issue' => ['admin/issue-book.php', 'fa-arrow-up-right-from-square', 'Kitob berish'],
-        'return' => ['admin/return-book.php', 'fa-rotate-left', 'Kitobni qaytarish'],
-    ];
+    global $pdo;
+    $role = isset($pdo) ? (string) ((current_user($pdo)['role'] ?? '')) : '';
+    if ($role === 'admin') {
+        $items = [
+            'students' => ['admin/students.php', 'fa-users', 'O‘quvchilar'],
+            'reservations' => ['admin/reservations.php', 'fa-calendar-check', 'Band qilishlar'],
+            'issue' => ['admin/issue-book.php', 'fa-arrow-up-right-from-square', 'Kitob berish'],
+            'return' => ['admin/return-book.php', 'fa-rotate-left', 'Kitobni qaytarish'],
+        ];
+    } else {
+        $items = [
+            'dashboard' => ['vendor/index.php', 'fa-chart-pie', 'Sotuvchi paneli'],
+            'books' => ['vendor/index.php', 'fa-book', 'Mening kitoblarim'],
+            'add-book' => ['vendor/book-form.php', 'fa-square-plus', 'E’lon qo‘shish'],
+            'reservations' => ['admin/reservations.php', 'fa-calendar-check', 'Band qilishlar'],
+            'issue' => ['admin/issue-book.php', 'fa-arrow-up-right-from-square', 'Kitob berish'],
+            'return' => ['admin/return-book.php', 'fa-rotate-left', 'Kitobni qaytarish'],
+        ];
+    }
     $html = '<nav class="admin-nav" aria-label="Admin navigatsiyasi">';
     foreach ($items as $key => $item) {
         $html .= '<a' . ($active === $key ? ' class="active"' : '') . ' href="' . e(APP_URL . '/' . $item[0]) . '"><i class="fa-solid ' . e($item[1]) . '"></i>' . e($item[2]) . '</a>';

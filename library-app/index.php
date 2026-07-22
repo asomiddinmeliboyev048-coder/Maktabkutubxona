@@ -25,11 +25,18 @@ $sql = "SELECT
             b.cover_image,
             b.total_copies,
             b.available_copies,
+            b.listing_type,
+            b.price,
+            b.rental_price,
+            b.address,
+            b.phone,
+            CONCAT_WS(' ', u.first_name, u.last_name) AS seller_name,
             c.name AS category_name,
             COALESCE(AVG(r.rating), 0) AS average_rating,
             COUNT(r.id) AS review_count
         FROM books b
         INNER JOIN categories c ON c.id = b.category_id
+        LEFT JOIN users u ON u.id = b.user_id AND u.is_active = 1
         LEFT JOIN reviews r ON r.book_id = b.id
         WHERE b.is_active = 1";
 $params = [];
@@ -47,7 +54,8 @@ if ($categoryId > 0) {
     $params['category_id'] = $categoryId;
 }
 
-$sql .= ' GROUP BY b.id, b.title, b.author, b.description, b.cover_image, b.total_copies, b.available_copies, c.name
+$sql .= ' GROUP BY b.id, b.title, b.author, b.description, b.cover_image, b.total_copies, b.available_copies,
+                         b.listing_type, b.price, b.rental_price, b.address, b.phone, u.first_name, u.last_name, c.name
           ORDER BY b.created_at DESC, b.title ASC';
 
 $bookStatement = $pdo->prepare($sql);
@@ -78,11 +86,7 @@ $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="mainNavigation">
-            <div class="ms-auto mt-3 mt-lg-0">
-                <a class="btn btn-outline-primary rounded-pill px-4" href="<?= e(APP_URL) ?>/admin/index.php">
-                    <i class="fa-solid fa-user-shield me-2"></i>Kutubxonachi paneli
-                </a>
-            </div>
+            <div class="ms-auto mt-3 mt-lg-0"><?= public_auth_navigation($pdo) ?></div>
         </div>
     </div>
 </nav>
@@ -170,8 +174,22 @@ $books = library_feature_enrich_books($pdo, $bookStatement->fetchAll());
                                 <span class="rating-number"><?= number_format((float) $book['average_rating'], 1) ?> (<?= (int) $book['review_count'] ?>)</span>
                             </div>
                             <p class="book-description"><?= e(mb_strimwidth(strip_tags(htmlspecialchars_decode($book['description'], ENT_QUOTES)), 0, 88, '…', 'UTF-8')) ?></p>
+                            <div class="marketplace-meta mb-3">
+                                <span class="listing-badge"><?= e(library_feature_listing_label($book['listing_type'])) ?></span>
+                                <small><i class="fa-solid fa-store me-1"></i><?= e($book['seller_name'] ?: 'Maktab kutubxonasi') ?></small>
+                                <small><i class="fa-solid fa-location-dot me-1"></i><?= e($book['address'] ?: 'Maktab kutubxonasi') ?></small>
+                                <?php if ($book['phone']): ?><small><i class="fa-solid fa-phone me-1"></i><?= e($book['phone']) ?></small><?php endif; ?>
+                                <?php if (in_array($book['listing_type'], ['sale', 'both'], true) && $book['price'] !== null): ?><strong><?= e(money_uzs($book['price'])) ?></strong><?php endif; ?>
+                                <?php if (in_array($book['listing_type'], ['rental', 'both'], true) && $book['rental_price'] !== null): ?><small>Ijara: <?= e(money_uzs($book['rental_price'])) ?></small><?php endif; ?>
+                            </div>
                             <div class="catalog-stock mb-3"><span><strong><?= (int) $book['total_copies'] ?></strong> jami</span><span><strong><?= (int) $book['free_copies'] ?></strong> erkin</span><span><strong><?= (int) $book['active_loan_count'] ?></strong> o‘quvchida</span><span><i class="fa-regular fa-calendar me-1"></i><?= e(library_feature_date($book['earliest_pickup_date'], 'aniq emas')) ?></span></div>
-                            <a class="btn btn-outline-primary w-100 stretched-link" href="<?= e(APP_URL) ?>/book-details.php?id=<?= (int) $book['id'] ?>">
+                            <?php if ($book['phone']): ?>
+                                <div class="d-flex gap-2 mb-2 position-relative" style="z-index:2">
+                                    <a class="btn btn-sm btn-outline-primary flex-fill" href="tel:<?= e($book['phone']) ?>" aria-label="<?= e($book['seller_name'] ?: 'Sotuvchi') ?>ga qo‘ng‘iroq"><i class="fa-solid fa-phone"></i></a>
+                                    <a class="btn btn-sm btn-success flex-fill" href="https://wa.me/<?= e(whatsapp_phone((string) $book['phone'])) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp orqali bog‘lanish"><i class="fa-brands fa-whatsapp"></i></a>
+                                </div>
+                            <?php endif; ?>
+                            <a class="btn btn-outline-primary w-100" href="<?= e(APP_URL) ?>/book-details.php?id=<?= (int) $book['id'] ?>">
                                 Batafsil <i class="fa-solid fa-arrow-right ms-2"></i>
                             </a>
                         </div>

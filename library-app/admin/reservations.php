@@ -2,9 +2,13 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/db.php';
+$user = require_any_role($pdo, ['librarian', 'admin']);
+$isAdmin = $user['role'] === 'admin';
+$ownerClause = $isAdmin ? '' : ' AND b.user_id = :owner_id';
+$ownerParams = $isAdmin ? [] : ['owner_id' => $user['id']];
 
-sync_overdue_transactions($pdo);
-library_feature_expire_reservations($pdo);
+sync_overdue_transactions($pdo, $isAdmin ? null : (int) $user['id']);
+library_feature_expire_reservations($pdo, $isAdmin ? null : (int) $user['id']);
 
 $errors = [];
 $allowedTransitions = [
@@ -34,10 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  FROM reservations r
                  INNER JOIN books b ON b.id = r.book_id
                  INNER JOIN students s ON s.id = r.student_id
-                 WHERE r.id = :id
+                 WHERE r.id = :id AND (:is_admin = 1 OR b.user_id = :owner_id)
                  FOR UPDATE'
             );
-            $statement->execute(['id' => $reservationId]);
+            $statement->execute(['id' => $reservationId, 'is_admin' => $isAdmin ? 1 : 0, 'owner_id' => $user['id']]);
             $reservation = $statement->fetch();
 
             if (!$reservation) {
@@ -131,9 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stock = $pdo->prepare(
                     'UPDATE books
                      SET available_copies = available_copies - 1
-                     WHERE id = :id AND available_copies > 0'
+                     WHERE id = :id AND (:is_admin = 1 OR user_id = :owner_id) AND available_copies > 0'
                 );
-                $stock->execute(['id' => $reservation['book_id']]);
+                $stock->execute(['id' => $reservation['book_id'], 'is_admin' => $isAdmin ? 1 : 0, 'owner_id' => $user['id']]);
                 if ($stock->rowCount() !== 1) {
                     throw new RuntimeException('Kitob qoldig‘ini yangilab bo‘lmadi.');
                 }
@@ -180,10 +184,11 @@ $sql = "SELECT r.*, b.title, b.author, b.available_copies, b.total_copies, b.is_
                   AND (h.expires_at IS NULL OR h.expires_at >= NOW())) AS held_copies
         FROM reservations r
         INNER JOIN books b ON b.id = r.book_id
-        INNER JOIN students s ON s.id = r.student_id";
-$params = [];
+        INNER JOIN students s ON s.id = r.student_id
+        WHERE (:is_admin = 1 OR b.user_id = :owner_id)";
+$params = ['is_admin' => $isAdmin ? 1 : 0, 'owner_id' => $user['id']];
 if (in_array($statusFilter, $validStatuses, true)) {
-    $sql .= ' WHERE r.status = :status';
+    $sql .= ' AND r.status = :status';
     $params['status'] = $statusFilter;
 }
 $sql .= " ORDER BY FIELD(r.status, 'pending', 'approved', 'ready', 'collected', 'cancelled', 'expired'),

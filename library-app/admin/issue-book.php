@@ -2,9 +2,13 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/db.php';
+$user = require_any_role($pdo, ['librarian', 'admin']);
+$isAdmin = $user['role'] === 'admin';
+$ownerClause = $isAdmin ? '' : ' AND b.user_id = :user_id';
+$ownerParams = $isAdmin ? [] : ['user_id' => $user['id']];
 
-sync_overdue_transactions($pdo);
-library_feature_expire_reservations($pdo);
+sync_overdue_transactions($pdo, $isAdmin ? null : (int) $user['id']);
+library_feature_expire_reservations($pdo, $isAdmin ? null : (int) $user['id']);
 
 $errors = [];
 $formData = [
@@ -45,8 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
-            $studentStatement = $pdo->prepare('SELECT id, full_name FROM students WHERE id = :student_id AND is_active = 1 FOR UPDATE');
-            $studentStatement->execute(['student_id' => $formData['student_id']]);
+            $studentStatement = $pdo->prepare(
+                "SELECT s.id, s.full_name FROM students s
+                 WHERE s.id = :student_id AND s.is_active = 1
+                   AND (:is_admin = 1 OR EXISTS (
+                       SELECT 1 FROM reservations linked_reservation
+                       INNER JOIN books owned_book ON owned_book.id = linked_reservation.book_id
+                       WHERE linked_reservation.student_id = s.id AND owned_book.user_id = :user_id
+                   ))
+                 FOR UPDATE"
+            );
+            $studentStatement->execute(['student_id' => $formData['student_id'], 'is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
             $student = $studentStatement->fetch();
             if (!$student) {
                 throw new RuntimeException('Tanlangan o‘quvchi topilmadi.');
@@ -55,9 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $bookStatement = $pdo->prepare(
                 "SELECT b.id, b.title, b.available_copies,
                         (SELECT COUNT(*) FROM reservations r WHERE r.book_id=b.id AND r.status IN ('approved','ready')) AS held_copies
-                 FROM books b WHERE b.id = :book_id AND b.is_active = 1 FOR UPDATE"
+                 FROM books b WHERE b.id = :book_id AND (:is_admin = 1 OR b.user_id = :user_id) AND b.is_active = 1 AND b.listing_type IN ('rental','both') FOR UPDATE"
             );
-            $bookStatement->execute(['book_id' => $formData['book_id']]);
+            $bookStatement->execute(['book_id' => $formData['book_id'], 'is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
             $book = $bookStatement->fetch();
             if (!$book) {
                 throw new RuntimeException('Tanlangan kitob topilmadi.');
@@ -106,9 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             $stockStatement = $pdo->prepare(
-                'UPDATE books SET available_copies = available_copies - 1 WHERE id = :book_id AND available_copies > 0'
+                'UPDATE books SET available_copies = available_copies - 1 WHERE id = :book_id AND (:is_admin = 1 OR user_id = :user_id) AND available_copies > 0'
             );
-            $stockStatement->execute(['book_id' => $formData['book_id']]);
+            $stockStatement->execute(['book_id' => $formData['book_id'], 'is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
             if ($stockStatement->rowCount() !== 1) {
                 throw new RuntimeException('Kitob qoldig‘ini yangilab bo‘lmadi.');
             }
@@ -125,18 +138,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$studentStatement = $pdo->prepare('SELECT id, full_name, class_name, student_code FROM students WHERE is_active = 1 ORDER BY full_name ASC');
-$studentStatement->execute();
+$studentStatement = $pdo->prepare(
+    "SELECT s.id, s.full_name, s.class_name, s.student_code
+     FROM students s
+     WHERE s.is_active = 1
+       AND (:is_admin = 1 OR EXISTS (
+           SELECT 1 FROM reservations r
+           INNER JOIN books owned_book ON owned_book.id = r.book_id
+           WHERE r.student_id = s.id
+             AND r.status IN ('pending','approved','ready')
+             AND owned_book.user_id = :user_id
+       ))
+     ORDER BY s.full_name ASC"
+);
+$studentStatement->execute(['is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
 $students = $studentStatement->fetchAll();
 
 $availableBookStatement = $pdo->prepare(
     "SELECT b.id, b.title, b.author, b.available_copies, b.total_copies,
             b.available_copies - (SELECT COUNT(*) FROM reservations r WHERE r.book_id=b.id AND r.status IN ('approved','ready')) AS free_copies
      FROM books b
-     WHERE b.is_active=1 AND b.available_copies > (SELECT COUNT(*) FROM reservations r WHERE r.book_id=b.id AND r.status IN ('approved','ready'))
+     WHERE (:is_admin = 1 OR b.user_id=:user_id) AND b.is_active=1 AND b.listing_type IN ('rental','both') AND b.available_copies > (SELECT COUNT(*) FROM reservations r WHERE r.book_id=b.id AND r.status IN ('approved','ready'))
      ORDER BY b.title ASC"
 );
-$availableBookStatement->execute();
+$availableBookStatement->execute(['is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
 $availableBooks = $availableBookStatement->fetchAll();
 
 $activeStatement = $pdo->prepare(
@@ -144,11 +169,11 @@ $activeStatement = $pdo->prepare(
      FROM borrow_transactions bt
      INNER JOIN books b ON b.id = bt.book_id
      INNER JOIN students s ON s.id = bt.student_id
-     WHERE bt.status IN ('borrowed', 'overdue')
+     WHERE bt.status IN ('borrowed', 'overdue') AND (:is_admin = 1 OR b.user_id=:user_id)
      ORDER BY bt.due_date ASC
      LIMIT 10"
 );
-$activeStatement->execute();
+$activeStatement->execute(['is_admin' => $isAdmin ? 1 : 0, 'user_id' => $user['id']]);
 $activeLoans = $activeStatement->fetchAll();
 $flash = get_flash();
 ?>

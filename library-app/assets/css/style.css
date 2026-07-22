@@ -255,3 +255,18 @@ a { color: var(--primary); }
 .catalog-stock { display: flex; flex-wrap: wrap; gap: 6px; color: var(--muted); font-size: .7rem; }
 .catalog-stock span { padding: 5px 7px; border-radius: 8px; background: #f1f5f9; }
 .catalog-stock strong { color: var(--ink); }
+
+
+.auth-shell { display: grid; min-height: 100vh; place-items: center; padding: 32px 16px; background: radial-gradient(circle at top right, #ddd6fe, transparent 38%), #eff6ff; }
+.auth-card { width: min(100%, 680px); padding: clamp(24px, 5vw, 44px); border: 1px solid var(--line); border-radius: 24px; background: #fff; box-shadow: var(--shadow); }
+.marketplace-meta { display: grid; gap: 6px; color: var(--muted); }
+.listing-badge { display: inline-flex; width: max-content; padding: 6px 10px; border-radius: 999px; color: #5b21b6; background: #ede9fe; font-size: .72rem; font-weight: 800; }
+.marketplace-price-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.marketplace-price-grid > div { min-width: 160px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+.marketplace-price-grid small, .marketplace-price-grid strong { display: block; }
+.marketplace-price-grid small { color: var(--muted); }
+.contact-list { display: grid; gap: 10px; }
+.contact-list > div { display: grid; grid-template-columns: minmax(90px, 130px) 1fr; gap: 12px; }
+.contact-list dt { color: var(--muted); }
+.contact-list dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+@media (max-width: 575.98px) { .auth-card { padding: 22px 18px; } .contact-list > div { grid-template-columns: 1fr; gap: 2px; } }
