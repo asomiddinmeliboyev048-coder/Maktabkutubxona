@@ -83,11 +83,14 @@ function require_role(PDO $pdo, string $role): array
 
 function role_dashboard_path(string $role): string
 {
-    return match ($role) {
-        'admin' => 'admin/index.php',
-        'librarian' => 'vendor/index.php',
-        default => 'index.php',
-    };
+    switch ($role) {
+        case 'admin':
+            return 'admin/index.php';
+        case 'librarian':
+            return 'vendor/index.php';
+        default:
+            return 'index.php';
+    }
 }
 
 function is_public_registration_role(string $role): bool
